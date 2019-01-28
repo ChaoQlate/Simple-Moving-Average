@@ -40,8 +40,35 @@ def FetchFirstLast(file, header=False):
         return (None, None)
     return (str(first, 'utf-8'), str(last, 'utf-8'))
 
-if __name__ == '__main__':
-    a = pg.QtGui.QApplication([])
-    g = ReadToGraph(file='TSLA.csv')
-    g.show()
-    a.exec_()
+def BinarySearch(arr, val):
+    if len(arr) == 0:
+        #print(False, 0)
+        return (False, 0)
+    mid = int(len(arr) / 2.0 - 0.5)
+    if arr[mid] == val:
+        #print(True, mid)
+        return (True, mid)
+    elif arr[mid] < val:
+        found, index = BinarySearch(arr[mid+1:], val)
+        #print(found, mid + index + 1)
+        return (found, mid + index + 1)
+    else:
+        found, index = BinarySearch(arr[0:mid], val)
+        #print(found, mid - (len(arr[0:mid]) - index))
+        return (found, mid - (len(arr[0:mid]) - index))
+
+#finds the smallest index in a sorted list that is larger than the given value
+def MinBound(arr, val):
+    found, index = BinarySearch(arr, val)
+    for i in range(3):
+        if arr[(index + i) % len(arr)] >= val:
+            return (index + i) % len(arr)
+    return None
+
+#finds the largest index in sorted list that is smaller than the given value
+def MaxBound(arr, val):
+    found, index = BinarySearch(arr, val)
+    for i in range(3):
+        if arr[(index - i) % len(arr)] <= val:
+            return (index - i) % len(arr)
+    return None

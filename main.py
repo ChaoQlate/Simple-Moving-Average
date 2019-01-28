@@ -6,7 +6,7 @@ from PyQt5 import QtGui
 from PyQt5.QtCore import QDate
 from PyQt5.QtWidgets import (QApplication ,QComboBox ,QDateEdit ,QGridLayout, 
                                 QLabel, QLineEdit, QPushButton ,QSpacerItem ,QWidget)
-from read import ReadCSV, DiscoverCSV, FetchFirstLast
+from read import ReadCSV, DiscoverCSV, FetchFirstLast, MinBound, MaxBound
 
 
 class ApplicationWindow(QWidget):
@@ -15,7 +15,6 @@ class ApplicationWindow(QWidget):
 
         #initialises an empty graph
         self.graph = pg.PlotWidget(axisItems={'bottom' : da.DateAxis('bottom')})
-        self.GenerateNewGraph(data)
 
         #generates the gui for input and output
         inputLayout = self.CreateInputGroup()
@@ -97,7 +96,7 @@ class ApplicationWindow(QWidget):
 
     # Signals and slots is the mechanism used to connect controller and model
     # When a signal is emitted such as .currentIndexChange
-    # connected slots which follow .connect(<slot>) are activated
+    # connected slots which follow currentIndex.connect(<slot>) are activated
 
     # These are some of the custom slots used to recieve signals
     # setters in ApplicationData are also slots
@@ -136,25 +135,23 @@ class ApplicationWindow(QWidget):
         for _QDateTime in args:
             _QDateTime.setMinimumDate(date)
 
-    #careful wtih incomplete data
-    #assumes that begin dates and end dates are in the csvfile
     def GenerateNewGraph(self, data):
         # attempts to gather the date and closing price of selected stock
         # uses the stored start and end dates to set the range of the values
-        try:
-            xVals, yVals = ReadCSV(data.csvFile)
-            xStart = time.mktime(time.strptime(data.startDate.toString("yyyyMMdd"), "%Y%m%d"))
-            xEnd = time.mktime(time.strptime(data.endDate.toString("yyyyMMdd"), "%Y%m%d"))
-            indexStart = xVals.index(xStart)
-            indexEnd = xVals.index(xEnd)
-        except:
-            #sets conditions to create an empty graph
-            indexStart = 0 
-            indexEnd = 0
+        xVals, yVals = ReadCSV(data.csvFile)
+        xStart = time.mktime(time.strptime(data.startDate.toString("yyyyMMdd"), "%Y%m%d"))
+        xEnd = time.mktime(time.strptime(data.endDate.toString("yyyyMMdd"), "%Y%m%d"))
+        indexStart = MinBound(xVals, xStart)
+        indexEnd = MaxBound(xVals, xEnd)
 
         oldGraphItem = self.graph.getPlotItem()
         oldGraphItem.clear()
         oldGraphItem.plot(x=xVals[indexStart:indexEnd+1], y=yVals[indexStart:indexEnd+1])
+
+        if data.csvFile == 'TSLA.csv':
+            oldGraphItem.plot(x=xVals[indexStart:indexEnd+1], y=yVals[indexStart:indexEnd+1], pen='b')
+        else:
+            oldGraphItem.plot(x=xVals[indexStart:indexEnd+1], y=yVals[indexStart:indexEnd+1], pen='r')
 
 class ApplicationData(object):
     def __init__(self):
