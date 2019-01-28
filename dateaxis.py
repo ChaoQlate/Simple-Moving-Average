@@ -67,7 +67,7 @@ class DateAxis(pg.AxisItem):
             strns.append(time.strftime(self.dateFmtDict[self.dateMode], time.localtime(val)))
         self.dateMode -= 1
 
-        label = "Time " + time.strftime("%d-%b-%y", time.localtime(min(values))) + " to" + time.strftime("%d-%b-%y",time.localtime(max(values)))
+        label = "Time " + time.strftime("%d-%m-%y", time.localtime(min(values))) + " to " + time.strftime("%d-%m-%y",time.localtime(max(values)))
         self.setLabel(text=label)
 
         return strns

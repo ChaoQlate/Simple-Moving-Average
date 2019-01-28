@@ -1,3 +1,4 @@
+from PyQt5.QtCore import QObject 
 import pyqtgraph as pg
 import numpy as np
 import dateaxis as da
@@ -33,7 +34,11 @@ class SimpleMovingAverage():
 
 win = pg.GraphicsWindow(title="Simple Moving Average")
 win.resize(1000,600)
-plot = win.addPlot(title="TSLA", axisItems={"bottom" : da.DateAxis(orientation="bottom")})
+a = da.DateAxis(orientation="bottom")
+plot = win.addPlot(title="TSLA", axisItems={"bottom" : a})
+
+if isinstance(win, QObject):
+    print("yeeet")
 
 sma = SimpleMovingAverage(50)
 smaVals = []
