@@ -1,12 +1,14 @@
 import sys
 import time
-import dateaxis as da
+from functools import wraps 
 import pyqtgraph as pg
+import dateaxis as da
 from PyQt5 import QtGui
 from PyQt5.QtCore import QDate
 from PyQt5.QtWidgets import (QApplication ,QComboBox ,QDateEdit ,QGridLayout, 
                                 QLabel, QLineEdit, QPushButton ,QSpacerItem ,QWidget)
-from read import ReadCSV, DiscoverCSV, FetchFirstLast, MinBound, MaxBound
+from read import ReadCSV, DiscoverCSV, FetchFirstLast, ConvertTime
+from sma import SimpleMovingAverage
 
 
 class ApplicationWindow(QWidget):
@@ -70,8 +72,11 @@ class ApplicationWindow(QWidget):
         amountLabel.setBuddy(amountBox)
 
         runButton = QPushButton("&Run")
-        runButton.clicked.connect(lambda : self.GenerateNewGraph(data))
-
+        runButton.clicked.connect(self.graph.getPlotItem().clear)
+        runButton.clicked.connect(lambda : ApplicationData.plotData.fset.__get__(data)({}))
+        runButton.clicked.connect(lambda : self.StandardGraph(self, data))
+        runButton.clicked.connect(lambda : self.SMAGraph(self, data))
+        
 
         #the QGridLayout used to manager the positioning of above widgets
         layout = QGridLayout()
@@ -135,23 +140,42 @@ class ApplicationWindow(QWidget):
         for _QDateTime in args:
             _QDateTime.setMinimumDate(date)
 
-    def GenerateNewGraph(self, data):
-        # attempts to gather the date and closing price of selected stock
-        # uses the stored start and end dates to set the range of the values
-        xVals, yVals = ReadCSV(data.csvFile)
-        xStart = time.mktime(time.strptime(data.startDate.toString("yyyyMMdd"), "%Y%m%d"))
-        xEnd = time.mktime(time.strptime(data.endDate.toString("yyyyMMdd"), "%Y%m%d"))
-        indexStart = MinBound(xVals, xStart)
-        indexEnd = MaxBound(xVals, xEnd)
-
-        oldGraphItem = self.graph.getPlotItem()
-        oldGraphItem.clear()
-        oldGraphItem.plot(x=xVals[indexStart:indexEnd+1], y=yVals[indexStart:indexEnd+1])
-
-        if data.csvFile == 'TSLA.csv':
-            oldGraphItem.plot(x=xVals[indexStart:indexEnd+1], y=yVals[indexStart:indexEnd+1], pen='b')
+    # used to update the graph.PlotItem to contain a new graph
+    def GenerateGraph(**graphArgs):
+        def decorate(func):
+            @wraps(func)
+            def wrapper(self, *args, **kwargs):
+                plotItem = self.graph.getPlotItem()
+                result = func(*args, **kwargs)
+                plotItem.plot(x=result[0], y=result[1], **graphArgs)
+                return result
+            return wrapper
+        return decorate
+    
+    #produces a standard graph
+    @GenerateGraph(pen='r')
+    def StandardGraph(self, data):
+        xVals, yVals = ReadCSV(data.csvFile, start=(0, data.startDate), end=(0, data.endDate), columns=[0, 2])
+        xVals = ConvertTime(xVals)
+        yVals = [float(i) for i in yVals]
+        data.plotData["standard"] = (xVals, yVals)
+        return data.plotData["standard"]
+    
+    @GenerateGraph(pen='b')
+    def SMAGraph(self, data):
+        sma = SimpleMovingAverage()
+        smaVals = []
+        xVals, yVals = data.plotData["standard"]
+        for y in yVals:
+            sma.update(y)
+            smaVals.append(sma.getAverage())
+        if len(smaVals) < 50:
+            data.plotData["sma"] = ([],[])
         else:
-            oldGraphItem.plot(x=xVals[indexStart:indexEnd+1], y=yVals[indexStart:indexEnd+1], pen='r')
+            data.plotData["sma"] = (xVals[50:], smaVals[50:])
+        return data.plotData["sma"]
+
+
 
 class ApplicationData(object):
     def __init__(self):
@@ -159,10 +183,7 @@ class ApplicationData(object):
         self._endDate = None
         self._amount = None
         self._csvFile = None
-        self._plotData = None
-
-    def test(self, val):
-        print(val)
+        self._plotData = {}
 
     # some setters are used as slots for ApplicationWindow
 
@@ -170,17 +191,19 @@ class ApplicationData(object):
     def startDate(self):
         return self._startDate
 
+    #converts Qdate into string date
     @startDate.setter
     def startDate(self, value):
-        self._startDate = value
+        self._startDate = self.QDatepstr(value)
 
     @property
     def endDate(self):
         return self._endDate
     
+    #converts Qdate into sting date when setting
     @endDate.setter
     def endDate(self, value):
-        self._endDate = value
+        self._endDate = self.QDatepstr(value)
 
     @property
     def amount(self):
@@ -205,6 +228,10 @@ class ApplicationData(object):
     @plotData.setter
     def plotData(self, value):
         self._plotData = value
+
+    def QDatepstr(self, value):
+        return value.toString("yyyy-MM-dd")
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

@@ -4,29 +4,61 @@ import os
 import time
 import csv
 
-#read column sniffer
-
-def ReadCSV(file=None):
+# Returns a list containing data of specified columns ranging from start to end
+# Assumes the column for start and end are sorted
+# start and end are tuples of size 2 (<column name/number>, <key>)
+# if columns are empty returns everything
+def ReadCSV(file, header=True, start=None, end=None, columns=[]):
     try:
-        xVals = []
-        yVals = []
         with open(file, newline='') as f:
-            next(f)
             reader = csv.reader(f)
-            for row in reader:
-                xVals.append(time.mktime(time.strptime(row[0], "%Y-%m-%d")))
-                yVals.append(float(row[2]))
+            line = next(reader)
+
+            if not header:
+                if start == None:
+                    start = (0, line[0])       
+            else:
+                if start != None and start[0] in line:
+                    start = (line.index(start[0]), start[1])
+                if end != None and end[0] in line:
+                    end = (line.index(end[0]), end[1])
+                line = next(reader)
+                if start == None:
+                    start = (0, line[0])
+            if end == None:
+                fill, end = FetchFirstLast(file, header=header)
+                end = (0, end.split(",")[0])
+
+            while(line[start[0]] < start[1]):
+                line = next(reader)
+
+            results = []            
+            if columns == []:
+                columns = [i for i in range(len(line))]
+                    
+            for i in columns:
+                results.append([line[i]])
+            
+            if line[end[0]] < end[1]:
+                for line in reader:
+                    for i in range(len(columns)):
+                        results[i].append(line[columns[i]])
+                    if line[end[0]] >= end[1]:
+                        break 
     except:
-        xVals = []
-        yVals = []
-    #graph = pg.PlotItem(x=xVals, y=yVals, axisItems={'bottom' : da.DateAxis('bottom')}, pen='b')
-    return (xVals, yVals)
-    
+        results = []
+    return tuple(results)
 
 def DiscoverCSV(path=os.getcwd()):
     return [f for f in os.listdir(path) if f[-4:] == '.csv']
 
-def FetchFirstLast(file, header=False):
+def ConvertTime(dates):
+    secondsAfterEpoch = []
+    for date in dates:
+        secondsAfterEpoch.append(time.mktime(time.strptime(date, "%Y-%m-%d")))
+    return secondsAfterEpoch
+
+def FetchFirstLast(file, header=True):
     try:
         with open(file, mode='rb') as f:
             if header == True:
@@ -40,35 +72,6 @@ def FetchFirstLast(file, header=False):
         return (None, None)
     return (str(first, 'utf-8'), str(last, 'utf-8'))
 
-def BinarySearch(arr, val):
-    if len(arr) == 0:
-        #print(False, 0)
-        return (False, 0)
-    mid = int(len(arr) / 2.0 - 0.5)
-    if arr[mid] == val:
-        #print(True, mid)
-        return (True, mid)
-    elif arr[mid] < val:
-        found, index = BinarySearch(arr[mid+1:], val)
-        #print(found, mid + index + 1)
-        return (found, mid + index + 1)
-    else:
-        found, index = BinarySearch(arr[0:mid], val)
-        #print(found, mid - (len(arr[0:mid]) - index))
-        return (found, mid - (len(arr[0:mid]) - index))
-
-#finds the smallest index in a sorted list that is larger than the given value
-def MinBound(arr, val):
-    found, index = BinarySearch(arr, val)
-    for i in range(3):
-        if arr[(index + i) % len(arr)] >= val:
-            return (index + i) % len(arr)
-    return None
-
-#finds the largest index in sorted list that is smaller than the given value
-def MaxBound(arr, val):
-    found, index = BinarySearch(arr, val)
-    for i in range(3):
-        if arr[(index - i) % len(arr)] <= val:
-            return (index - i) % len(arr)
-    return None
+if __name__ == "__main__":
+    x, y = ReadCSV("TSLANoHeader.csv", start=(0,"2012-06-30"), end=(0, "2013-06-30"), columns=[0,2])
+    print(x, y)
