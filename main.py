@@ -9,6 +9,7 @@ from PyQt5.QtWidgets import (QApplication ,QComboBox ,QDateEdit ,QGridLayout,
                                 QLabel, QLineEdit, QPushButton ,QSpacerItem ,QWidget)
 from read import ReadCSV, DiscoverCSV, FetchFirstLast, ConvertTime
 from sma import SimpleMovingAverage
+from strategy import SMACross, strat
 
 
 class ApplicationWindow(QWidget):
@@ -76,6 +77,7 @@ class ApplicationWindow(QWidget):
         runButton.clicked.connect(lambda : ApplicationData.plotData.fset.__get__(data)({}))
         runButton.clicked.connect(lambda : self.StandardGraph(self, data))
         runButton.clicked.connect(lambda : self.SMAGraph(self, data))
+        runButton.clicked.connect(lambda : self.buySellScatter(data))
         
 
         #the QGridLayout used to manager the positioning of above widgets
@@ -153,7 +155,7 @@ class ApplicationWindow(QWidget):
         return decorate
     
     #produces a standard graph
-    @GenerateGraph(pen='r')
+    @GenerateGraph(pen='w')
     def StandardGraph(self, data):
         xVals, yVals = ReadCSV(data.csvFile, start=(0, data.startDate), end=(0, data.endDate), columns=[0, 2])
         xVals = ConvertTime(xVals)
@@ -163,19 +165,30 @@ class ApplicationWindow(QWidget):
     
     @GenerateGraph(pen='b')
     def SMAGraph(self, data):
-        sma = SimpleMovingAverage()
+        sma = SimpleMovingAverage(50)
         smaVals = []
         xVals, yVals = data.plotData["standard"]
         for y in yVals:
             sma.update(y)
             smaVals.append(sma.getAverage())
-        if len(smaVals) < 50:
+        if len(smaVals) < sma.period :
             data.plotData["sma"] = ([],[])
         else:
-            data.plotData["sma"] = (xVals[50:], smaVals[50:])
+            data.plotData["sma"] = (xVals[sma.period:], smaVals[sma.period:])
         return data.plotData["sma"]
 
-
+    @GenerateGraph(pen=None, symbol='t', symbolPen=None, symbolSize=8, symbolBrush=(0,255,0))
+    def buyScatter(self, xVals, yVals):
+        return (xVals,  yVals)
+    
+    @GenerateGraph(pen=None, symbol='t', symbolPen=None, symbolSize=8, symbolBrush=(255,0,0))
+    def sellScatter(self, xVals, yVals):
+        return (xVals, yVals)
+    
+    def buySellScatter(self, data):
+        buy, sell = strat(data.plotData["sma"][1], data.plotData["standard"][0], data.plotData["standard"][1], 30000)
+        self.buyScatter(self, buy[0], buy[1])
+        self.sellScatter(self, sell[0], sell[1])
 
 class ApplicationData(object):
     def __init__(self):

@@ -1,7 +1,7 @@
 import queue
 
 class SimpleMovingAverage():
-    def __init__(self, period=50):
+    def __init__(self, period=5):
         self.period = period
         self.queue = queue.Queue(period)
     
